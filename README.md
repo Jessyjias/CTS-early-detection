@@ -1,6 +1,6 @@
 # CTS-early-detection
  
-BME Capstone Project 
+BME Capstone Project: Early Detection for Carpal Tunnel Syndrome 
 
 2 folders: 
 1. iOS app for user interaction 
