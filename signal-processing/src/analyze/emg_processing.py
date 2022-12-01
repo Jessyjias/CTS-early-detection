@@ -22,8 +22,8 @@ def analyzeEMG(rawEMGSignal, samplerate, preprocessing=True,lowpass=50,highpass=
     
     if(preprocessing):
         #Preprocessing
-        # filteredEMGSignal = butter_lowpass_filter(rawEMGSignal, lowpass, samplerate, 2)#filter the signal with a cutoff at 1Hz and a 2th order Butterworth filter
-        # filteredEMGSignal = butter_highpass_filter(filteredEMGSignal, highpass, samplerate, 2)#filter the signal with a cutoff at 0.05Hz and a 2th order Butterworth filter
+        filteredEMGSignal = butter_lowpass_filter(rawEMGSignal, lowpass, samplerate, 2)#filter the signal with a cutoff at 1Hz and a 2th order Butterworth filter
+        filteredEMGSignal = butter_highpass_filter(filteredEMGSignal, highpass, samplerate, 2)#filter the signal with a cutoff at 0.05Hz and a 2th order Butterworth filter
         filteredEMGSignal = phasicFilter(filteredEMGSignal, samplerate,seconds=phasic_seconds)
     else:
         filteredEMGSignal = rawEMGSignal
