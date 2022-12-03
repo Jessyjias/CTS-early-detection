@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 #                                                                             #
 ###############################################################################
 """ Features have been taken from: Phinyomark, A., Phukpattaranont, P., & Limsakul, C. (2012). """
+# https://www-sciencedirect-com.proxy.lib.uwaterloo.ca/science/article/pii/S0957417412001200?via%3Dihub
 
 def getIEMG(rawEMGSignal):
     """ This function compute the sum of absolute values of EMG signal Amplitude.::
@@ -256,8 +257,8 @@ def getAAC(rawEMGSignal):
     """
     N = len(rawEMGSignal)
     WL = getWL(rawEMGSignal)
-    ACC = 1/N * WL
-    return(ACC)
+    AAC = 1/N * WL
+    return(AAC)
     
 def getDASDV(rawEMGSignal):
     """ Get the standard deviation value of the the wavelength.::
