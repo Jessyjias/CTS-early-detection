@@ -6,6 +6,10 @@ from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 from brainflow.data_filter import DataFilter, FilterTypes, DetrendOperations
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 
+"""
+    Plug in Bluetooth to first (closer to user) USB slot. 
+    Switch board on to 'BLE' side. 
+"""
 
 class Graph:
     def __init__(self, board_shim):
