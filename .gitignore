@@ -1,2 +1,5 @@
 
 *.pyc
+.DS_Store
+signal-processing/.DS_Store
+signal-processing/openbci-data/.DS_Store
