@@ -3,13 +3,46 @@ import logging
 
 import pyqtgraph as pg
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
-from brainflow.data_filter import DataFilter, FilterTypes, DetrendOperations
+from brainflow.data_filter import DataFilter, FilterTypes, DetrendOperations, NoiseTypes
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+import numpy as np
+from scipy.signal import butter, filtfilt, iirnotch
 
 """
     Plug in Bluetooth to first (closer to user) USB slot. 
     Switch board on to 'BLE' side. 
+    Script adapted from the BrainFlow example 
 """
+
+def filter_data(data, fs=250, notch_f0 = 60, Q = 100):
+  nyq = 0.5*fs
+  # remove dc offset 
+  b,a = butter(2, 1/nyq, 'highpass')
+  y = filtfilt(b,a,data)
+
+  b_notch, a_notch = iirnotch(notch_f0, Q, fs)
+  y = filtfilt(b_notch, a_notch, y)
+
+  return y
+
+def getMAV(rawEMGSignal):
+    """ Thif functions compute the  average of EMG signal Amplitude.::
+        
+            MAV = 1/N * sum(|xi|) for i = 1 --> N
+        
+        * Input: 
+            * raw EMG Signal as list
+        * Output: 
+            * Mean Absolute Value    
+            
+        :param rawEMGSignal: the raw EMG signal
+        :type rawEMGSignal: list
+        :return: the MAV of the EMG Signal
+        :rtype: float
+    """
+    
+    MAV = 1/len(rawEMGSignal) *  np.sum([abs(x) for x in rawEMGSignal])    
+    return(MAV)
 
 class Graph:
     def __init__(self, board_shim):
@@ -17,13 +50,13 @@ class Graph:
         self.board_shim = board_shim
         self.exg_channels = BoardShim.get_emg_channels(self.board_id)
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
-        self.update_speed_ms = 50
-        self.window_size = 10
+        self.update_speed_ms = 100 ##(0.05 s = 50)
+        self.window_size = 4 ## (showing past 4s data in window)
         self.num_points = self.window_size * self.sampling_rate
 
         self.app = QtWidgets.QApplication([])
-        self.win = pg.GraphicsLayoutWidget(title='Real Time Plot', size=(800, 600))
-
+        self.win = pg.GraphicsLayoutWidget(title='Real Time Plot - Mean Absolute Value', size=(800, 600))
+        self.win.setBackground('w')
         self._init_timeseries()
 
         timer = QtCore.QTimer()
@@ -34,30 +67,55 @@ class Graph:
     def _init_timeseries(self):
         self.plots = list()
         self.curves = list()
-        for i in range(len(self.exg_channels)):
-            p = self.win.addPlot(row=i, col=0)
-            p.showAxis('left', False)
-            p.setMenuEnabled('left', False)
-            p.showAxis('bottom', False)
-            p.setMenuEnabled('bottom', False)
-            if i == 0:
-                p.setTitle('TimeSeries Plot')
-            self.plots.append(p)
-            curve = p.plot()
-            self.curves.append(curve)
+        p = self.win.addPlot(row=0, col=0) 
+        p.showAxis('left', True)
+        p.setLabel('left', 'Mean Absolute Value (mV)')
+        p.setMenuEnabled('left', False)
+        p.showAxis('bottom', True)
+        p.setMenuEnabled('bottom', False)
+        p.setRange(yRange=[0,1000])
+        p.setTitle('TimeSeries Plot')
+        self.plots.append(p)
+        curve = p.plot()
+        self.curves.append(curve)
+        
+        pen = pg.mkPen(color=(255, 0, 0))
+        curve_hori = p.plot(pen=pen)
+        self.curves.append(curve_hori)
 
     def update(self):
         data = self.board_shim.get_current_board_data(self.num_points)
-        for count, channel in enumerate(self.exg_channels):
-            # plot timeseries
-            DataFilter.detrend(data[channel], DetrendOperations.CONSTANT.value)
-            # DataFilter.perform_bandpass(data[channel], self.sampling_rate, 3.0, 45.0, 2,
-            #                             FilterTypes.BUTTERWORTH.value, 0)
-            # DataFilter.perform_bandstop(data[channel], self.sampling_rate, 48.0, 52.0, 2,
-            #                             FilterTypes.BUTTERWORTH.value, 0)
-            # DataFilter.perform_bandstop(data[channel], self.sampling_rate, 58.0, 62.0, 2,
-            #                             FilterTypes.BUTTERWORTH.value, 0)
-            self.curves[count].setData(data[channel].tolist())
+        target_channel = self.exg_channels[0]
+        target_data = data[target_channel]
+
+        DataFilter.detrend(target_data, DetrendOperations.CONSTANT.value)
+        # DataFilter.perform_highpass(target_data, self.sampling_rate, 1/125, 2,
+        #                                 FilterTypes.BUTTERWORTH.value, 0)
+        # DataFilter.remove_environmental_noise(target_data, self.sampling_rate, NoiseTypes.SIXTY.value)
+
+        target_data = filter_data(target_data)
+        
+        ## compute metric 
+        mavs = []
+        mav_window_data_size = 500
+        for i in range(len(target_data) - mav_window_data_size + 1):
+            mavs.append(getMAV(target_data[i: i + mav_window_data_size]))
+        
+        print(len(mavs))
+        ## save to csv 
+        save_data = data[:target_channel, :1] ## write_file takes 2D arrays, here is 1 number 2D array (1,1)
+        DataFilter.write_file(save_data, '/Users/jessysong/Documents/Github-Projects/CTS-early-detection/signal-processing/src/stream/sample_data.csv', 'a')  # use 'a' for append mode
+        save_mav = np.zeros((1, 1))
+        
+        if len(mavs)>mav_window_data_size: 
+            save_mav.fill(mavs[0])
+            DataFilter.write_file(save_mav, '/Users/jessysong/Documents/Github-Projects/CTS-early-detection/signal-processing/src/stream/sample_mav.csv', 'a')  # use 'a' for append mode
+
+            self.curves[0].setData(mavs)
+        
+        ## set line to hold force at 
+        target_mav = [200]*len(mavs)
+        self.curves[1].setData(target_mav)
         self.win.show() # you need to add this  
         self.app.processEvents()
 
@@ -102,6 +160,11 @@ def main():
         board_shim = BoardShim(args.board_id, params)
         board_shim.prepare_session()
         board_shim.start_stream(450000, args.streamer_params)
+
+        ## Try dummy board - only 1 data point or sth 
+        # params = BrainFlowInputParams()
+        # board_shim = BoardShim(BoardIds.SYNTHETIC_BOARD, params)
+        # board_shim.prepare_session()
         Graph(board_shim)
     except BaseException:
         logging.warning('Exception', exc_info=True)
