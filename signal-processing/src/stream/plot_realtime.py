@@ -50,7 +50,7 @@ class Graph:
         self.board_shim = board_shim
         self.exg_channels = BoardShim.get_emg_channels(self.board_id)
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
-        self.update_speed_ms = 100 ##(0.05 s = 50)
+        self.update_speed_ms = 50 ##(0.05 s = 50)
         self.window_size = 4 ## (showing past 4s data in window)
         self.num_points = self.window_size * self.sampling_rate
 
@@ -76,12 +76,15 @@ class Graph:
         p.setRange(yRange=[0,1000])
         p.setTitle('TimeSeries Plot')
         self.plots.append(p)
-        curve = p.plot()
+        pen = pg.mkPen(color=(64, 64, 64), width=3.5)
+        curve = p.plot(pen=pen)
         self.curves.append(curve)
         
-        pen = pg.mkPen(color=(255, 0, 0))
+        pen = pg.mkPen(color=(0, 204, 0), width=3)
         curve_hori = p.plot(pen=pen)
+        curve_hori_2 = p.plot(pen=pen)
         self.curves.append(curve_hori)
+        self.curves.append(curve_hori_2)
 
     def update(self):
         data = self.board_shim.get_current_board_data(self.num_points)
@@ -114,8 +117,10 @@ class Graph:
             self.curves[0].setData(mavs)
         
         ## set line to hold force at 
-        target_mav = [200]*len(mavs)
+        target_mav = [150]*len(mavs)
+        target_mav_2 = [200]*len(mavs)
         self.curves[1].setData(target_mav)
+        self.curves[2].setData(target_mav_2)
         self.win.show() # you need to add this  
         self.app.processEvents()
 
